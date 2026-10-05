@@ -1,0 +1,75 @@
+name: Finalize localized corporate homepages
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-homepages:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch DE EN AL launch links
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+
+          pages = {
+              'de.html': {
+                  'shop': 'https://shop.interxtrade.eu/de',
+                  'rfq': 'https://shop.interxtrade.eu/de/richiesta-offerta',
+                  'local_rfq': 'de-richiedi-offerta.html',
+                  'copy': 'Geben Sie Unternehmen, Produkte, Mengen, Zielort und Termin an. Die Anfrage wird im B2B-Shop mit einer RFQ-Referenz gespeichert; Projektunterlagen können über die erhaltene Referenz zugeordnet werden.',
+              },
+              'en.html': {
+                  'shop': 'https://shop.interxtrade.eu/en',
+                  'rfq': 'https://shop.interxtrade.eu/en/richiesta-offerta',
+                  'local_rfq': 'en-richiedi-offerta.html',
+                  'copy': 'Provide company, products, quantities, destination and timing. The request is recorded in the B2B Shop with an RFQ reference; project documents can be associated using the reference received.',
+              },
+              'al.html': {
+                  'shop': 'https://shop.interxtrade.eu/al',
+                  'rfq': 'https://shop.interxtrade.eu/al/richiesta-offerta',
+                  'local_rfq': 'al-richiedi-offerta.html',
+                  'copy': 'Shënoni kompaninë, produktet, sasitë, destinacionin dhe afatin. Kërkesa regjistrohet në Shop B2B me një referencë RFQ; dokumentet e projektit mund të lidhen me kërkesën duke përdorur referencën e marrë.',
+              },
+          }
+
+          for filename, cfg in pages.items():
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+
+              # Localize all generic shop links on the homepage.
+              text = text.replace('https://shop.interxtrade.eu"', cfg['shop'] + '"')
+
+              # Make the secondary hero CTA actionable.
+              text = text.replace('<a class="btn">', f'<a class="btn" href="{cfg["rfq"]}">', 1)
+
+              # Send homepage RFQ links straight to the operational shop workflow.
+              text = text.replace(f'href="{cfg["local_rfq"]}"', f'href="{cfg["rfq"]}"')
+
+              # Replace obsolete demo/integration wording in the final RFQ panel.
+              pattern = r'(<section class="final">.*?<div class="panel"><h3>.*?</h3>)<p>.*?</p>'
+              text = re.sub(pattern, lambda m: m.group(1) + '<p>' + cfg['copy'] + '</p>', text, count=1, flags=re.S)
+
+              path.write_text(text, encoding='utf-8')
+
+      - name: Commit localized launch fixes
+        run: |
+          if git diff --quiet -- de.html en.html al.html; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add de.html en.html al.html
+          git commit -m "launch: connect localized corporate CTAs to B2B shop"
+          git push
