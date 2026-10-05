@@ -1,0 +1,41 @@
+name: Polish localization once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Polish localized labels
+        shell: python
+        run: |
+          from pathlib import Path
+          for p in Path('.').glob('*.html'):
+              s=p.read_text(encoding='utf-8')
+              n=p.name
+              if n.startswith('de-') or n=='de.html':
+                  s=s.replace('<h4>CONTACT</h4>','<h4>KONTAKT</h4>').replace('>Legal / Privacy</a>','>Rechtliches / Datenschutz</a>').replace('<h3>Phone</h3>','<h3>Telefon</h3>').replace('<h3>B2B Shop</h3>','<h3>B2B-Shop</h3>').replace('>PROJEKT ANFRAGEN</a>','>PROJEKT EINREICHEN</a>')
+              elif n.startswith('al-') or n=='al.html':
+                  s=s.replace('<h4>CONTACT</h4>','<h4>KONTAKT</h4>').replace('>Legal / Privacy</a>','>Ligjore / Privatësia</a>').replace('<h3>Phone</h3>','<h3>Telefoni</h3>')
+              elif n.startswith('en-') or n=='en.html':
+                  pass
+              else:
+                  s=s.replace('<h4>CONTACT</h4>','<h4>CONTATTI</h4>').replace('>Legal / Privacy</a>','>Note legali / Privacy</a>').replace('<h3>Phone</h3>','<h3>Telefono</h3>').replace('<h3>B2B Shop</h3>','<h3>Shop B2B</h3>')
+              p.write_text(s,encoding='utf-8')
+      - name: Commit polish
+        run: |
+          rm -f .github/workflows/polish-localization-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "launch: polish localized corporate labels"
+          git push
